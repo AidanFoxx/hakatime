@@ -72,6 +72,8 @@ library
                      , Haka.Handlers.Commits
                      , Haka.Utils
                      , Haka.PasswordUtils
+                     , Haka.Middleware.CSRF
+                     , Haka.Validation
                      , Paths_hakatime
 
   autogen-modules:     Paths_hakatime

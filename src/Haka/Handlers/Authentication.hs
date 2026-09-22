@@ -23,6 +23,7 @@ import Haka.Types
     TokenData (..),
     TokenMetadata (..),
   )
+import Haka.Validation (ValidationError (..), validateUsername, validatePassword, validationErrorToMessage)
 import Haka.Utils (getRefreshToken)
 import Katip
 import qualified Relude.Unsafe as Unsafe
@@ -153,49 +154,57 @@ mkLoginResponse tknData now =
 
 loginHandler :: AuthRequest -> AppM LoginResponse'
 loginHandler creds = do
-  now <- liftIO getCurrentTime
-  ctx <- ask
+  -- Validate input
+  case (validateUsername (username creds), validatePassword (password creds)) of
+    (Left err, _) -> throw $ Err.mkGenericError (validationErrorToMessage err)
+    (_, Left err) -> throw $ Err.mkGenericError (validationErrorToMessage err)
+    (Right _, Right _) -> do
+      now <- liftIO getCurrentTime
+      ctx <- ask
 
-  logFM InfoS ("login for user " <> showLS (username creds))
+      logFM InfoS ("login for user " <> showLS (username creds))
 
-  res <-
-    try $
-      liftIO $
-        Db.createAuthTokens
-          (username creds)
-          (password creds)
-          (pool ctx)
-          (hakaSessionExpiry $ srvSettings ctx)
+      res <-
+        try $
+          liftIO $
+            Db.createAuthTokens
+              (username creds)
+              (password creds)
+              (pool ctx)
+              (hakaSessionExpiry $ srvSettings ctx)
 
-  tknData <- either Err.logError pure res
+      tknData <- either Err.logError pure res
 
-  return $
-    addHeader (mkRefreshTokenCookie tknData (hakaApiPrefix $ srvSettings ctx)) $
-      mkLoginResponse tknData now
+      return $
+        addHeader (mkRefreshTokenCookie tknData (hakaApiPrefix $ srvSettings ctx)) $
+          mkLoginResponse tknData now
 
 registerHandler :: RegistrationStatus -> AuthRequest -> AppM LoginResponse'
 registerHandler DisabledRegistration _ = throw Err.disabledRegistration
 registerHandler EnabledRegistration creds =
-  do
-    now <- liftIO getCurrentTime
-    ctx <- ask
+  case (validateUsername (username creds), validatePassword (password creds)) of
+    (Left err, _) -> throw $ Err.mkGenericError (validationErrorToMessage err)
+    (_, Left err) -> throw $ Err.mkGenericError (validationErrorToMessage err)
+    (Right _, Right _) -> do
+      now <- liftIO getCurrentTime
+      ctx <- ask
 
-    logFM InfoS ("registering user " <> showLS (username creds))
+      logFM InfoS ("registering user " <> showLS (username creds))
 
-    res <-
-      try $
-        liftIO $
-          Db.registerUser
-            (pool ctx)
-            (username creds)
-            (password creds)
-            (hakaSessionExpiry $ srvSettings ctx)
+      res <-
+        try $
+          liftIO $
+            Db.registerUser
+              (pool ctx)
+              (username creds)
+              (password creds)
+              (hakaSessionExpiry $ srvSettings ctx)
 
-    tknData <- either Err.logError pure res
+      tknData <- either Err.logError pure res
 
-    return $
-      addHeader (mkRefreshTokenCookie tknData (hakaApiPrefix $ srvSettings ctx)) $
-        mkLoginResponse tknData now
+      return $
+        addHeader (mkRefreshTokenCookie tknData (hakaApiPrefix $ srvSettings ctx)) $
+          mkLoginResponse tknData now
 
 refreshTokenHandler :: Maybe Text -> AppM LoginResponse'
 refreshTokenHandler Nothing = throw Err.missingRefreshTokenCookie

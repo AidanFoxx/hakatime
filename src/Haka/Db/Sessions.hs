@@ -30,6 +30,10 @@ import qualified Hasql.Transaction as Transaction
 import Hasql.Transaction.Sessions (IsolationLevel (..), Mode (..), transaction)
 import qualified Data.UUID as U
 
+-- | Delete a refresh token by its value.
+deleteRefreshToken :: Text -> Session Int64
+deleteRefreshToken token = statement token Statements.deleteRefreshToken
+
 updateTokenUsage :: Text -> Session ()
 updateTokenUsage tkn = statement tkn Statements.updateTokenUsage
 

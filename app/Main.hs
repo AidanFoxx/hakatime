@@ -20,6 +20,7 @@ import qualified Haka.Cli as Cli
 import qualified Haka.Handlers.Import as Import
 import qualified Haka.Logger as Log
 import qualified Haka.Middleware as Middleware
+import Haka.Middleware (defaultCSRFConfig, csrfProtection, securityHeaders)
 import qualified Hasql.Connection as HasqlConn
 import qualified Hasql.Pool as HasqlPool
 import Hasql.Queue.Migrate (migrate)
@@ -40,6 +41,8 @@ nt ctx = Handler . ExceptT . try . runAppT ctx
 app :: ServerSettings -> AppCtx -> Application
 app settings conf =
   Middleware.jsonResponse $
+    securityHeaders $
+    csrfProtection defaultCSRFConfig $
     cors (const $ Just policy) $
       serve Api.api $
         hoistServer Api.api (nt conf) (Api.server settings)

@@ -17,6 +17,7 @@ module Haka.Errors
     mkApiError,
     expiredRefreshToken,
     invalidCredentials,
+    mkGenericError,
   )
 where
 
@@ -158,6 +159,13 @@ genericError _ =
       errHeaders = contentTypeHeader
     }
 
+mkGenericError :: Text -> ServerError
+mkGenericError msg =
+  err400
+    { errBody = encode $ mkApiError msg Nothing,
+      errHeaders = contentTypeHeader
+    }
+
 genericHttpError :: Text -> Maybe Text -> ServerError
 genericHttpError e msg =
   err500
@@ -188,8 +196,8 @@ toJSONError (InvalidRelation user project) = invalidRelation user project
 toJSONError (InvalidTagRelation user tag) = invalidTagRelation user tag
 toJSONError ExpiredRefreshToken = expiredRefreshToken
 toJSONError InvalidCredentials = invalidCredentials
-toJSONError (SessionException e) = genericError (show e :: Text)
-toJSONError (OperationException e) = genericError e
+toJSONError (SessionException _) = genericError "Database operation failed"
+toJSONError (OperationException _) = genericError "Internal server error"
 toJSONError (UsernameExists u) = usernameExists u
 toJSONError (RegistrationFailed _) = registerError
 toJSONError MissingRefreshTokenCookie = missingRefreshTokenCookie
@@ -230,5 +238,5 @@ logError e@(InvalidTagRelation (StoredUser u) (Tag t)) = do
   logFM WarningS (logStr (printf "User %s doesn't have a tag named '%s'" u t :: String))
   throw $ toJSONError e
 logError e = do
-  logFM ErrorS (logStr (show e :: String))
+  logFM ErrorS (logStr ("Database or operation error occurred" :: String))
   throw $ toJSONError e

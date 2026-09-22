@@ -363,10 +363,19 @@ createAuthTokens user passwd pool expiry = do
 refreshAuthTokens :: Db m => Maybe Text -> HqPool.Pool -> Int64 -> m TokenData
 refreshAuthTokens Nothing _ _ = throw MissingRefreshTokenCookie
 refreshAuthTokens (Just refreshToken) pool expiry = do
+  -- First, delete the old refresh token to prevent session fixation
+  _ <- deleteRefreshToken pool refreshToken
+  
+  -- Then validate and create new tokens
   res <- getUserByRefreshToken pool refreshToken
   case res of
     Nothing -> throw ExpiredRefreshToken
     Just u -> createWebToken pool u expiry
+  where
+    deleteRefreshToken :: Db m => HqPool.Pool -> Text -> m ()
+    deleteRefreshToken p token = do
+      res <- HqPool.use p (Sessions.deleteRefreshToken token)
+      either (throw . SessionException) pure res
 
 clearTokens :: Db m => ApiToken -> Maybe Text -> HqPool.Pool -> m ()
 clearTokens _ Nothing _ = throw MissingRefreshTokenCookie

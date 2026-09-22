@@ -1,7 +1,7 @@
 #
 # Build the frontend.
 #
-FROM node:18 as dashboard-builder
+FROM node:18-alpine as dashboard-builder
 
 WORKDIR /usr/src/app
 
@@ -14,7 +14,7 @@ RUN yarn install --network-timeout 1000000000 && \
 #
 # Build the server.
 #
-FROM alpine:3.17 as server-builder
+FROM alpine:3.19 as server-builder
 
 WORKDIR /build
 
@@ -41,7 +41,7 @@ RUN apk add --no-cache curl gcc g++ libc-dev musl-dev binutils-gold make zlib-de
 
 RUN apk add upx && upx /app/bin/hakatime
 
-FROM alpine:3.17
+FROM alpine:3.19
 
 COPY --from=dashboard-builder /usr/src/app/dist /app/bin/dashboard
 COPY --from=server-builder    /app/bin/hakatime /app/bin/hakatime
@@ -56,7 +56,7 @@ RUN apk add --no-cache \
         zlib-dev \
         postgresql \
         postgresql-dev && \
-    # Remove files that we don't' need.
+    # Remove files that we don't need.
     rm -rf /usr/lib/libicudata.so* \
            /usr/lib/libLLVM* \
            /usr/lib/libclang* \
